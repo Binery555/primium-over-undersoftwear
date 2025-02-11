@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+  <meta charset="UTF-8">
+  <title>Untitled</title>
+  
+
+</head>
+<body>
+<!-- partial:index.partial.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Trader - Live Market Data</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background-color: #ffffff; /* White background */
+      color: #000000; /* Black text */
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      padding: 20px;
+    }
+    .market-title {
+      font-size: 24px;
+      margin-bottom: 10px;
+    }
+    .live-price {
+      font-size: 36px;
+      font-weight: bold;
+      color: #1e3a8a; /* Dark blue */
+      margin-bottom: 20px;
+    }
+    .status {
+      font-size: 16px;
+      color: #3b82f6; /* Blue */
+    }
+    .market {
+      margin-top: 20px;
+    }
+    .market .market-name {
+      font-size: 20px;
+      margin-bottom: 10px;
+    }
+    .market-buttons {
+      margin-top: 20px;
+    }
+    .market-buttons button {
+      margin: 5px;
+      padding: 10px 20px;
+      font-size: 16px;
+      background-color: #1e3a8a; /* Blue */
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    .market-buttons button:hover {
+      background-color: #3b82f6; /* Light blue */
+    }
+    .number-plate {
+      display: flex;
+      justify-content: center;
+      margin-top: 20px;
+    }
+    .number {
+      padding: 10px;
+      margin: 5px;
+      border: 1px solid #ccc;
+      background-color: #e0f7ff; /* Light blue */
+      color: #1e3a8a; /* Dark blue */
+      font-size: 24px;
+      width: 40px;
+      text-align: center;
+    }
+    .highlight {
+      background-color: #1e3a8a; /* Blue */
+      color: white;
+      border: 2px solid #3b82f6; /* Light blue */
+    }
+    .signal-box {
+      background-color: #1e3a8a; /* Blue */
+      color: white;
+      padding: 10px;
+      margin-top: 20px;
+      display: inline-block;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Smart Trader - Live Market Data</h1>
+
+    <!-- Market List -->
+    <div class="market">
+      <div class="market-name" id="marketName">Select a Volatility Index</div>
+      <div class="live-price" id="livePrice">Loading...</div>
+    </div>
+
+    <!-- Buttons to Select Market -->
+    <div class="market-buttons">
+      <button onclick="subscribeToMarket('R_10', 'Volatility 10 Index')">Volatility 10</button>
+      <button onclick="subscribeToMarket('R_25', 'Volatility 25 Index')">Volatility 25</button>
+      <button onclick="subscribeToMarket('R_50', 'Volatility 50 Index')">Volatility 50</button>
+      <button onclick="subscribeToMarket('R_75', 'Volatility 75 Index')">Volatility 75</button>
+      <button onclick="subscribeToMarket('R_100', 'Volatility 100 Index')">Volatility 100</button>
+    </div>
+
+    <div class="status" id="status">Connecting to Deriv API...</div>
+
+    <!-- Number Plate -->
+    <div class="number-plate" id="numberPlate">
+      <div class="number">0</div>
+      <div class="number">1</div>
+      <div class="number">2</div>
+      <div class="number">3</div>
+      <div class="number">4</div>
+      <div class="number">5</div>
+      <div class="number">6</div>
+      <div class="number">7</div>
+      <div class="number">8</div>
+      <div class="number">9</div>
+    </div>
+
+    <!-- Signal Box -->
+    <div class="signal-box" id="signalBox">Still Processing...</div>
+  </div>
+
+  <script>
+    const DERIV_API_TOKEN = 'your_api_token_here';
+    const ws = new WebSocket('wss://ws.binaryws.com/websockets/v3?app_id=1089');
+    const statusElement = document.getElementById('status');
+    const priceElement = document.getElementById('livePrice');
+    const marketNameElement = document.getElementById('marketName');
+    const numberPlate = document.getElementById('numberPlate').children;
+    const signalBox = document.getElementById('signalBox');
+
+    let currentMarket = null;
+    let overSequence = [];
+    let underSequence = [];
+
+    ws.onopen = () => {
+      statusElement.textContent = 'Connected to Deriv API. Fetching data...';
+    };
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+
+      if (data.error) {
+        statusElement.textContent = `Error: ${data.error.message}`;
+        return;
+      }
+
+      if (data.tick) {
+        const market = data.tick.symbol;
+        const price = data.tick.quote;
+
+        if (market === currentMarket) {
+          priceElement.textContent = price;
+          statusElement.textContent = 'Live data updated.';
+
+          const lastDigit = parseInt(price.toString().split('.').pop().slice(-1));
+
+          Array.from(numberPlate).forEach((el, index) => {
+            el.classList.toggle('highlight', index === lastDigit);
+          });
+
+          // Update sequences
+          if (lastDigit >= 4 && lastDigit <= 9) {
+            overSequence.push(lastDigit);
+            underSequence = [];
+          } else if (lastDigit >= 1 && lastDigit <= 5) {
+            underSequence.push(lastDigit);
+            overSequence = [];
+          } else {
+            overSequence = [];
+            underSequence = [];
+          }
+
+          // Check for signals
+          if (overSequence.length >= 5) {
+            playSound();
+            signalBox.textContent = 'Signal: Over';
+            setTimeout(() => signalBox.textContent = 'Still Processing...', 3000);
+            overSequence = [];
+          }
+          if (underSequence.length >= 6) {
+            playSound();
+            signalBox.textContent = 'Signal: Under';
+            setTimeout(() => signalBox.textContent = 'Still Processing...', 3000);
+            underSequence = [];
+          }
+        }
+      }
+    };
+
+    ws.onerror = (error) => {
+      statusElement.textContent = `Connection error: ${error.message}`;
+    };
+
+    ws.onclose = () => {
+      statusElement.textContent = 'Connection closed. Reconnecting...';
+    };
+
+    function subscribeToMarket(marketSymbol, marketName) {
+      currentMarket = marketSymbol;
+      marketNameElement.textContent = marketName;
+
+      ws.send(JSON.stringify({
+        ticks: marketSymbol,
+        subscribe: 1,
+        passthrough: { token: DERIV_API_TOKEN }
+      }));
+
+      priceElement.textContent = 'Loading...';
+      statusElement.textContent = `Subscribed to ${marketName}. Waiting for data...`;
+    }
+
+    function playSound() {
+      var audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      var oscillator = audioContext.createOscillator();
+      oscillator.type = 'square';
+      oscillator.frequency.setValueAtTime(220, audioContext.currentTime);
+      oscillator.connect(audioContext.destination);
+      oscillator.start();
+      oscillator.stop(audioContext.currentTime + 1);
+    }
+  </script>
+</body>
+</html>
+<!-- partial -->
+  
+</body>
+</html>
