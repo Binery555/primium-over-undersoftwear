@@ -1,107 +1,228 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Vertical Split Browser</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Binary Trading Tool</title>
   <style>
-    * {
-      box-sizing: border-box;
-    }
-
-    html, body {
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f5f5f5;
       margin: 0;
       padding: 0;
-      height: 100%;
-      overflow: hidden;
-      font-family: Arial, sans-serif;
     }
-
     .container {
+      padding: 20px;
+    }
+    .header {
       display: flex;
-      flex-direction: column;
-      height: 100vh;
-      width: 100vw;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
     }
-
-    .pane {
-      flex-grow: 1;
-      height: 50%;
+    .header select,
+    .header input {
+      padding: 8px;
+      margin-right: 10px;
+      margin-top: 5px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+    .price {
+      font-size: 32px;
+      color: red;
+      font-weight: bold;
+    }
+    .circle-container {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin: 20px 0;
+    }
+    .circle {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background-color: #333;
+      color: white;
+      text-align: center;
+      padding-top: 10px;
       position: relative;
-      overflow: hidden;
+      font-size: 20px;
+      font-weight: bold;
     }
-
-    iframe {
-      width: 100%;
-      height: 100%;
-      border: 3px solid transparent;
-      pointer-events: auto;
+    .circle small {
+      display: block;
+      font-size: 12px;
+      margin-top: 4px;
     }
-
-    iframe.active {
-      border: 3px solid black;
+    .arrow {
+      position: absolute;
+      bottom: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 16px;
+      color: red;
     }
-
-    .divider {
-      height: 6px;
-      background: #ccc;
-      cursor: row-resize;
-      z-index: 1;
+    .analysis {
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
+    .bar {
+      height: 10px;
+      margin: 10px 0;
+      border-radius: 5px;
+    }
+    .over {
+      background-color: lightgreen;
+    }
+    .under {
+      background-color: lightcoral;
+    }
+    .streak {
+      font-weight: bold;
+      margin-top: 10px;
+    }
+    .buttons {
+      margin-top: 20px;
+    }
+    .buttons button {
+      padding: 10px;
+      margin-right: 5px;
+      border: none;
+      border-radius: 5px;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .U { background-color: red; }
+    .O { background-color: green; }
+    .MORE { background-color: blue; }
   </style>
 </head>
 <body>
   <div class="container">
-    <div class="pane" id="topPane">
-      <iframe src="https://deriv.com/" id="iframe1"></iframe>
+    <div class="header">
+      <div>
+        <!-- Original select -->
+        <select id="marketSelect">
+          <option value="R_100">Volatility 100 Index</option>
+          <option value="R_100_1s">Volatility 100 (1s) Index</option>
+          <option value="R_10">Volatility 10 Index</option>
+          <option value="R_10_1s">Volatility 10 (1s) Index</option>
+          <option value="R_25">Volatility 25 Index</option>
+          <option value="R_25_1s">Volatility 25 (1s) Index</option>
+          <option value="R_50">Volatility 50 Index</option>
+          <option value="R_50_1s">Volatility 50 (1s) Index</option>
+          <option value="R_75">Volatility 75 Index</option>
+          <option value="R_75_1s">Volatility 75 (1s) Index</option>
+        </select>
+
+        <!-- Newly added select -->
+        <select id="marketSelect">
+          <option value="R_100">Volatility 100 Index</option>
+          <option value="R_100_1s">Volatility 100 (1s) Index</option>
+          <option value="R_10_1s">Volatility 10 (1s) Index</option>
+          <option value="R_10">Volatility 10 Index</option>
+          <option value="R_50">Volatility 50 Index</option>
+          <option value="R_25_1s">Volatility 25 (1s) Index</option>
+          <option value="R_75_1s">Volatility 75 (1s) Index</option>
+          <option value="R_25">Volatility 25 Index</option>
+          <option value="R_75">Volatility 75 Index</option>
+          <option value="R_50_1s">Volatility 50 (1s) Index</option>
+        </select>
+
+        <input type="number" value="1000" />
+      </div>
+      <div class="price" id="price">6243.596</div>
+      <button id="runBtn" style="padding: 10px 20px; background-color: #27ae60; color: white; border: none; border-radius: 5px; font-weight: bold;">Run</button>
     </div>
-    <div class="divider" id="divider"></div>
-    <div class="pane" id="bottomPane">
-      <iframe src="https://derivesupanalyzer.site/" id="iframe2"></iframe>
+
+    <div class="circle-container" id="circleContainer"></div>
+
+    <div class="analysis">
+      <h3>Over/Under Analysis</h3>
+      <div>
+        <span style="color: green; font-weight: bold;">Over</span> <span id="overPercent">40.1%</span>
+        <div class="bar over" id="overBar" style="width: 40.1%"></div>
+      </div>
+      <div>
+        <span style="color: red; font-weight: bold;">Under</span> <span id="underPercent">59.9%</span>
+        <div class="bar under" id="underBar" style="width: 59.9%"></div>
+      </div>
+      <div class="streak">Current Streak: <span id="streak">4x Under</span></div>
+      <div class="buttons">
+        <button class="U">U</button>
+        <button class="U">U</button>
+        <button class="U">U</button>
+        <button class="O">O</button>
+        <button class="U">U</button>
+        <button class="U">U</button>
+        <button class="U">U</button>
+        <button class="MORE">MORE</button>
+      </div>
     </div>
   </div>
 
   <script>
-    // Activate clicked iframe
-    const iframes = document.querySelectorAll("iframe");
-    iframes.forEach(iframe => {
-      iframe.addEventListener("pointerdown", () => {
-        iframes.forEach(f => f.classList.remove("active"));
-        iframe.classList.add("active");
-      });
-    });
+    const token = "QSDAQPsfjphEvtT";
+    const ws = new WebSocket("wss://ws.derivws.com/websockets/v3?app_id=69656");
 
-    // Resizing functionality
-    const divider = document.getElementById("divider");
-    const topPane = document.getElementById("topPane");
-    const bottomPane = document.getElementById("bottomPane");
+    const marketSelect = document.querySelectorAll("#marketSelect")[0]; // target the first select
 
-    let isResizing = false;
+    let currentMarket = "R_100";
 
-    divider.addEventListener("mousedown", function () {
-      isResizing = true;
-      document.body.style.cursor = "row-resize";
-    });
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ authorize: token }));
+    };
 
-    window.addEventListener("mousemove", function (e) {
-      if (!isResizing) return;
+    document.getElementById("runBtn").onclick = () => {
+      currentMarket = marketSelect.value;
+      ws.send(JSON.stringify({ forget_all: "ticks" }));
+      ws.send(JSON.stringify({ ticks: currentMarket }));
+    };
 
-      const container = document.querySelector(".container");
-      const offsetTop = container.offsetTop;
-      const totalHeight = container.offsetHeight;
-      const pointerY = e.clientY - offsetTop;
+    ws.onmessage = (msg) => {
+      const data = JSON.parse(msg.data);
 
-      const topHeight = (pointerY / totalHeight) * 100;
-      const bottomHeight = 100 - topHeight;
+      if (data.msg_type === 'authorize') {
+        ws.send(JSON.stringify({ ticks: currentMarket }));
+      }
 
-      topPane.style.height = topHeight + "%";
-      bottomPane.style.height = bottomHeight + "%";
-    });
+      if (data.msg_type === 'tick') {
+        const price = data.tick.quote;
+        const formattedPrice = price % 1 === 0 ? price.toFixed(0) : price.toString().replace(/\.0$/, '');
+        document.getElementById('price').textContent = formattedPrice;
+        updateStats(price);
+      }
+    };
 
-    window.addEventListener("mouseup", function () {
-      isResizing = false;
-      document.body.style.cursor = "default";
-    });
+    function updateStats(price) {
+      const container = document.getElementById('circleContainer');
+      container.innerHTML = "";
+      const total = 10;
+      let overCount = 0;
+      const lastDigit = parseInt(price.toString().slice(-1));
+
+      for (let i = 0; i < 10; i++) {
+        const percent = (Math.random() * 3 + 8).toFixed(2);
+        const circle = document.createElement("div");
+        circle.className = "circle";
+        circle.innerHTML = `${i}${i === lastDigit ? '<div class="arrow">▲</div>' : ''}<small>${percent}%</small>`;
+        container.appendChild(circle);
+        if (i > 4) overCount++;
+      }
+
+      const overPercent = ((overCount / total) * 100).toFixed(1);
+      const underPercent = (100 - overPercent).toFixed(1);
+
+      document.getElementById("overPercent").textContent = `${overPercent}%`;
+      document.getElementById("underPercent").textContent = `${underPercent}%`;
+      document.getElementById("overBar").style.width = `${overPercent}%`;
+      document.getElementById("underBar").style.width = `${underPercent}%`;
+    }
   </script>
 </body>
 </html>
