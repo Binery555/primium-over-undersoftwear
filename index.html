@@ -2,227 +2,159 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Binary Trading Tool</title>
+  <title>Deriv Trading Tool</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background-color: #f5f5f5;
-      margin: 0;
-      padding: 0;
+      padding: 2rem;
+      background-color: #f0f0f0;
+      color: #333;
     }
-    .container {
-      padding: 20px;
+
+    #price {
+      font-size: 2rem;
+      color: green;
+      margin-bottom: 1rem;
     }
-    .header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-    }
-    .header select,
-    .header input {
-      padding: 8px;
+
+    button {
+      padding: 10px 20px;
       margin-right: 10px;
-      margin-top: 5px;
-      border-radius: 4px;
-      border: 1px solid #ccc;
-    }
-    .price {
-      font-size: 32px;
-      color: red;
-      font-weight: bold;
-    }
-    .circle-container {
-      display: flex;
-      justify-content: center;
-      gap: 10px;
-      margin: 20px 0;
-    }
-    .circle {
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
-      background-color: #333;
-      color: white;
-      text-align: center;
-      padding-top: 10px;
-      position: relative;
-      font-size: 20px;
-      font-weight: bold;
-    }
-    .circle small {
-      display: block;
-      font-size: 12px;
-      margin-top: 4px;
-    }
-    .arrow {
-      position: absolute;
-      bottom: -10px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 16px;
-      color: red;
-    }
-    .analysis {
-      background-color: white;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    .bar {
-      height: 10px;
-      margin: 10px 0;
-      border-radius: 5px;
-    }
-    .over {
-      background-color: lightgreen;
-    }
-    .under {
-      background-color: lightcoral;
-    }
-    .streak {
-      font-weight: bold;
-      margin-top: 10px;
-    }
-    .buttons {
-      margin-top: 20px;
-    }
-    .buttons button {
-      padding: 10px;
-      margin-right: 5px;
-      border: none;
-      border-radius: 5px;
-      color: white;
-      font-weight: bold;
+      font-size: 1rem;
       cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      transition: 0.2s;
     }
-    .U { background-color: red; }
-    .O { background-color: green; }
-    .MORE { background-color: blue; }
+
+    #buyBtn {
+      background-color: #28a745;
+      color: white;
+    }
+
+    #sellBtn {
+      background-color: #dc3545;
+      color: white;
+    }
+
+    #status {
+      margin-top: 1rem;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <div>
-        <!-- Original select -->
-        <select id="marketSelect">
-          <option value="R_100">Volatility 100 Index</option>
-          <option value="R_100_1s">Volatility 100 (1s) Index</option>
-          <option value="R_10">Volatility 10 Index</option>
-          <option value="R_10_1s">Volatility 10 (1s) Index</option>
-          <option value="R_25">Volatility 25 Index</option>
-          <option value="R_25_1s">Volatility 25 (1s) Index</option>
-          <option value="R_50">Volatility 50 Index</option>
-          <option value="R_50_1s">Volatility 50 (1s) Index</option>
-          <option value="R_75">Volatility 75 Index</option>
-          <option value="R_75_1s">Volatility 75 (1s) Index</option>
-        </select>
 
-        <!-- Newly added select -->
-        <select id="marketSelect">
-          <option value="R_100">Volatility 100 Index</option>
-          <option value="R_100_1s">Volatility 100 (1s) Index</option>
-          <option value="R_10_1s">Volatility 10 (1s) Index</option>
-          <option value="R_10">Volatility 10 Index</option>
-          <option value="R_50">Volatility 50 Index</option>
-          <option value="R_25_1s">Volatility 25 (1s) Index</option>
-          <option value="R_75_1s">Volatility 75 (1s) Index</option>
-          <option value="R_25">Volatility 25 Index</option>
-          <option value="R_75">Volatility 75 Index</option>
-          <option value="R_50_1s">Volatility 50 (1s) Index</option>
-        </select>
+  <h1>Deriv Trading Tool (EUR/USD)</h1>
+  <div>Live Price: <span id="price">Loading...</span></div>
 
-        <input type="number" value="1000" />
-      </div>
-      <div class="price" id="price">6243.596</div>
-      <button id="runBtn" style="padding: 10px 20px; background-color: #27ae60; color: white; border: none; border-radius: 5px; font-weight: bold;">Run</button>
-    </div>
+  <button id="buyBtn">Buy (Rise)</button>
+  <button id="sellBtn">Sell (Fall)</button>
 
-    <div class="circle-container" id="circleContainer"></div>
-
-    <div class="analysis">
-      <h3>Over/Under Analysis</h3>
-      <div>
-        <span style="color: green; font-weight: bold;">Over</span> <span id="overPercent">40.1%</span>
-        <div class="bar over" id="overBar" style="width: 40.1%"></div>
-      </div>
-      <div>
-        <span style="color: red; font-weight: bold;">Under</span> <span id="underPercent">59.9%</span>
-        <div class="bar under" id="underBar" style="width: 59.9%"></div>
-      </div>
-      <div class="streak">Current Streak: <span id="streak">4x Under</span></div>
-      <div class="buttons">
-        <button class="U">U</button>
-        <button class="U">U</button>
-        <button class="U">U</button>
-        <button class="O">O</button>
-        <button class="U">U</button>
-        <button class="U">U</button>
-        <button class="U">U</button>
-        <button class="MORE">MORE</button>
-      </div>
-    </div>
-  </div>
+  <div id="status"></div>
 
   <script>
     const token = "QSDAQPsfjphEvtT";
-    const ws = new WebSocket("wss://ws.derivws.com/websockets/v3?app_id=69656");
+    const symbol = "frxEURUSD";
+    const duration = 1; // in minutes
 
-    const marketSelect = document.querySelectorAll("#marketSelect")[0]; // target the first select
+    const socket = new WebSocket("wss://ws.deriv.com/websockets/v3");
 
-    let currentMarket = "R_100";
-
-    ws.onopen = () => {
-      ws.send(JSON.stringify({ authorize: token }));
+    socket.onopen = () => {
+      console.log("Connected to Deriv WebSocket");
+      socket.send(JSON.stringify({ authorize: token }));
     };
 
-    document.getElementById("runBtn").onclick = () => {
-      currentMarket = marketSelect.value;
-      ws.send(JSON.stringify({ forget_all: "ticks" }));
-      ws.send(JSON.stringify({ ticks: currentMarket }));
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      console.log("Received:", data);
+
+      if (data.msg_type === "authorize") {
+        // Subscribe to price
+        socket.send(JSON.stringify({ ticks: symbol }));
+      }
+
+      if (data.msg_type === "tick") {
+        document.getElementById("price").textContent = data.tick.quote;
+      }
+
+      if (data.msg_type === "buy") {
+        document.getElementById("status").textContent = 
+          `Trade Confirmed! Contract ID: ${data.buy.contract_id}`;
+      }
+
+      if (data.error) {
+        document.getElementById("status").textContent = 
+          `Error: ${data.error.message}`;
+      }
     };
 
-    ws.onmessage = (msg) => {
-      const data = JSON.parse(msg.data);
+    const buyContract = (contractType) => {
+      const proposal = {
+        buy: 1,  // this will be replaced after proposal
+        price: 1,
+        parameters: {
+          amount: 1,
+          basis: "stake",
+          contract_type: contractType,
+          currency: "USD",
+          duration: duration,
+          duration_unit: "m",
+          symbol: symbol
+        }
+      };
 
-      if (data.msg_type === 'authorize') {
-        ws.send(JSON.stringify({ ticks: currentMarket }));
-      }
+      // First request a proposal
+      const proposalRequest = {
+        proposal: 1,
+        amount: 1,
+        basis: "stake",
+        contract_type: contractType,
+        currency: "USD",
+        duration: duration,
+        duration_unit: "m",
+        symbol: symbol
+      };
 
-      if (data.msg_type === 'tick') {
-        const price = data.tick.quote;
-        const formattedPrice = price % 1 === 0 ? price.toFixed(0) : price.toString().replace(/\.0$/, '');
-        document.getElementById('price').textContent = formattedPrice;
-        updateStats(price);
-      }
+      socket.send(JSON.stringify(proposalRequest));
+
+      socket.onmessage = (event) => {
+        const response = JSON.parse(event.data);
+        console.log("Proposal response:", response);
+
+        if (response.proposal) {
+          socket.send(JSON.stringify({
+            buy: response.proposal.id,
+            price: 1
+          }));
+        }
+
+        if (response.msg_type === "buy") {
+          document.getElementById("status").textContent = 
+            `Trade Confirmed! Contract ID: ${response.buy.contract_id}`;
+        }
+
+        if (response.error) {
+          document.getElementById("status").textContent = 
+            `Error: ${response.error.message}`;
+        }
+
+        if (response.tick) {
+          document.getElementById("price").textContent = response.tick.quote;
+        }
+      };
     };
 
-    function updateStats(price) {
-      const container = document.getElementById('circleContainer');
-      container.innerHTML = "";
-      const total = 10;
-      let overCount = 0;
-      const lastDigit = parseInt(price.toString().slice(-1));
+    document.getElementById("buyBtn").onclick = () => {
+      document.getElementById("status").textContent = "Buying RISE contract...";
+      buyContract("CALL");
+    };
 
-      for (let i = 0; i < 10; i++) {
-        const percent = (Math.random() * 3 + 8).toFixed(2);
-        const circle = document.createElement("div");
-        circle.className = "circle";
-        circle.innerHTML = `${i}${i === lastDigit ? '<div class="arrow">▲</div>' : ''}<small>${percent}%</small>`;
-        container.appendChild(circle);
-        if (i > 4) overCount++;
-      }
-
-      const overPercent = ((overCount / total) * 100).toFixed(1);
-      const underPercent = (100 - overPercent).toFixed(1);
-
-      document.getElementById("overPercent").textContent = `${overPercent}%`;
-      document.getElementById("underPercent").textContent = `${underPercent}%`;
-      document.getElementById("overBar").style.width = `${overPercent}%`;
-      document.getElementById("underBar").style.width = `${underPercent}%`;
-    }
+    document.getElementById("sellBtn").onclick = () => {
+      document.getElementById("status").textContent = "Buying FALL contract...";
+      buyContract("PUT");
+    };
   </script>
+
 </body>
 </html>
