@@ -63,7 +63,7 @@
       text-transform: uppercase;
     }
     .exclamations { color: var(--text-green); font-size: 18px; font-weight: bold; margin-left: 10px; }
-    .share { margin-left: auto; color: var(--text-secondary); font-size: 18px; }
+    .share { margin-left: auto; color: var(--text-secondary); font-size: 18px; cursor: pointer; }
     .content { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; }
     .column { display: flex; flex-direction: column; }
     .column.center { align-items: flex-start; text-align: left; }
@@ -88,6 +88,7 @@
     }
     .column.right .stat:nth-child(2) .value.green,
     .column.right .stat:nth-child(2) .value.red {
+      /* keep Margin Ratio font small again */
       font-size: 14px; font-weight: 400;
     }
     .actions { display: flex; justify-content: space-between; }
@@ -107,46 +108,51 @@
   <div class="feed"></div>
 
   <script>
+    // helper to format with commas and two decimals
+    function formatWithCommas(x) {
+      return x.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+
     // CONFIG
-    const symbols       = [
+    const symbols = [
       'BTCUSDT','ETHUSDT','BNBUSDT','ADAUSDT','SOLUSDT',
       'XRPUSDT','DOTUSDT','LTCUSDT','LINKUSDT','DOGEUSDT',
       'UNIUSDT','BCHUSDT','XLMUSDT','ATOMUSDT','MATICUSDT',
       'AVAXUSDT','TRXUSDT','EOSUSDT','NEARUSDT','FILUSDT'
     ];
-    const sizeCoins      = 10;
-    const leverage       = 50;
-    const updateInterval = 2000;    // 2 seconds
-    const maxDeltaPct    = 1;       // +/-1% per update
-    const maxPct         = 2000;    // clamp ROI between -2000% and +2000%
-    const extraTrades    = 50;      // add 50 more
+    const sizeCoins = 10;
+    const leverage = 50;
+    const updateInterval = 2000; // 2 seconds
+    const maxDeltaPct = 1;       // +/-1% per update
+    const maxPct = 2000;         // clamp ROI between -2000% and +2000%
+    const extraTrades = 50;      // add 50 more trades
 
     function pickLosers(count, total) {
       const losers = [];
       while (losers.length < count) {
         const idx = Math.floor(Math.random() * total);
-        if ([idx, idx-1, idx+1].some(x=>losers.includes(x))) continue;
+        if ([idx, idx-1, idx+1].some(x => losers.includes(x))) continue;
         losers.push(idx);
       }
       return losers;
     }
 
     const totalCount = symbols.length + extraTrades;
-    const loseIdxs   = pickLosers(2 + Math.floor(Math.random()*2), totalCount);
-    const trades     = [];
-    const feedDiv    = document.querySelector('.feed');
+    const loseIdxs = pickLosers(2 + Math.floor(Math.random() * 2), totalCount);
+    const trades = [];
+    const feedDiv = document.querySelector('.feed');
 
     // initialize all trades
     for (let i = 0; i < totalCount; i++) {
-      const sym       = symbols[i % symbols.length];
-      const isLoss    = loseIdxs.includes(i);
-      const entryPrice = 100 + Math.random()*49000;
-      const notional   = sizeCoins * entryPrice;
-      const margin     = notional / leverage;
-      let roiPct       = (isLoss ? -1 : 1) * (1 + Math.random() * (maxPct - 1));
-      let profitVal    = margin * roiPct / 100;
-      let markPrice    = entryPrice + profitVal/sizeCoins;
-      let liqPrice     = entryPrice * (1 - 1/leverage);
+      const sym = symbols[i % symbols.length];
+      const isLoss = loseIdxs.includes(i);
+      const entryPrice = 100 + Math.random() * 49000;
+      const notional = sizeCoins * entryPrice;
+      const margin = notional / leverage;
+      let roiPct = (isLoss ? -1 : 1) * (1 + Math.random() * (maxPct - 1));
+      let profitVal = margin * roiPct / 100;
+      let markPrice = entryPrice + profitVal / sizeCoins;
+      let liqPrice = entryPrice * (1 - 1 / leverage);
 
       const panel = document.createElement('div');
       panel.className = 'trade-panel';
@@ -162,7 +168,7 @@
         <div class="content">
           <div class="column">
             <div class="stat"><div class="label">PNL (USDT)</div>
-              <div class="value ${profitVal<0?'red':'green'}">${profitVal.toFixed(2)}</div>
+              <div class="value ${profitVal < 0 ? 'red' : 'green'}">${formatWithCommas(profitVal)}</div>
             </div>
             <div class="stat"><div class="label">Size (USDT)</div>
               <div class="value">${notional.toFixed(2)}</div>
@@ -181,12 +187,14 @@
           </div>
           <div class="column right">
             <div class="stat"><div class="label">ROI</div>
-              <div class="value percent ${profitVal<0?'red':'green'}">
-                ${(profitVal>=0?'+':'') + roiPct.toFixed(2)}%
+              <div class="value percent ${profitVal < 0 ? 'red' : 'green'}">
+                ${(profitVal >= 0 ? '+' : '') + roiPct.toFixed(2)}%
               </div>
             </div>
             <div class="stat"><div class="label">Margin Ratio</div>
-              <div class="value">${(profitVal/margin).toFixed(4)}</div>
+              <div class="value percent ${profitVal < 0 ? 'red' : 'green'}">
+                ${(profitVal / margin).toFixed(2)}%
+              </div>
             </div>
             <div class="stat"><div class="label">Liq. Price (USDT)</div>
               <div class="value">${liqPrice.toFixed(2)}</div>
@@ -200,33 +208,41 @@
           <button class="btn">Reverse</button>
         </div>`;
       feedDiv.appendChild(panel);
-
       trades.push({ panel, entryPrice, notional, margin, leverage, roiPct });
     }
 
     // smooth, slow updates
     setInterval(() => {
       trades.forEach(t => {
-        t.roiPct += (Math.random()*2 - 1) * maxDeltaPct;
+        t.roiPct += (Math.random() * 2 - 1) * maxDeltaPct;
         t.roiPct = Math.max(-maxPct, Math.min(maxPct, t.roiPct));
 
         const profitVal = t.margin * t.roiPct / 100;
-        const markPrice = t.entryPrice + profitVal/sizeCoins;
-        const liqPrice  = t.entryPrice * (1 - 1/t.leverage);
+        const markPrice = t.entryPrice + profitVal / sizeCoins;
+        const liqPrice = t.entryPrice * (1 - 1 / t.leverage);
 
         const vals = t.panel.querySelectorAll('.value');
-        vals[0].textContent = profitVal.toFixed(2);
+        // 0: PNL (USDT)
+        vals[0].textContent = formatWithCommas(profitVal);
         vals[0].classList.toggle('green', profitVal >= 0);
-        vals[0].classList.toggle('red',   profitVal < 0);
+        vals[0].classList.toggle('red', profitVal < 0);
 
+        // 4: Mark Price
         vals[4].textContent = markPrice.toFixed(2);
 
+        // 5: ROI
         const roiEl = vals[5];
-        roiEl.textContent = (profitVal>=0?'+':'') + t.roiPct.toFixed(2) + '%';
+        roiEl.textContent = (profitVal >= 0 ? '+' : '') + t.roiPct.toFixed(2) + '%';
         roiEl.classList.toggle('green', t.roiPct >= 0);
-        roiEl.classList.toggle('red',   t.roiPct < 0);
+        roiEl.classList.toggle('red', t.roiPct < 0);
 
-        vals[6].textContent = (profitVal/t.margin).toFixed(4);
+        // 6: Margin Ratio
+        const mrEl = vals[6];
+        mrEl.textContent = (profitVal / t.margin).toFixed(2) + '%';
+        mrEl.classList.toggle('green', profitVal >= 0);
+        mrEl.classList.toggle('red', profitVal < 0);
+
+        // 7: Liq. Price
         vals[7].textContent = liqPrice.toFixed(2);
       });
     }, updateInterval);
