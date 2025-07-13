@@ -120,19 +120,12 @@
       'UNIUSDT','BCHUSDT','XLMUSDT','ATOMUSDT','MATICUSDT',
       'AVAXUSDT','TRXUSDT','EOSUSDT','NEARUSDT','FILUSDT'
     ];
-    const sizeCoins   = 10;
-    const leverage    = 50;
+    const sizeCoins = 10;
+    const leverage = 50;
     const updateInterval = 2000; // 2 seconds
+    const maxDeltaPct = 1;       // +/-1% per update
+    const extraTrades = 50;      // add 50 more trades
 
-    // Profit & ROI bounds
-    const minProfit = 200;
-    const maxProfit = 5000;
-    const minPct    = 200;
-    const maxPct    = 3000;
-
-    // pick a few losses to keep it real
-    const extraTrades = 50;
-    const totalCount  = symbols.length + extraTrades;
     function pickLosers(count, total) {
       const losers = [];
       while (losers.length < count) {
@@ -142,47 +135,40 @@
       }
       return losers;
     }
-    const loseIdxs = pickLosers(2 + Math.floor(Math.random()*2), totalCount);
 
-    const trades  = [];
+    const totalCount = symbols.length + extraTrades;
+    const loseIdxs = pickLosers(2 + Math.floor(Math.random() * 2), totalCount);
+    const trades = [];
     const feedDiv = document.querySelector('.feed');
 
-    // initialize trades
+    // initialize all trades
     for (let i = 0; i < totalCount; i++) {
-      const sym    = symbols[i % symbols.length];
+      const sym = symbols[i % symbols.length];
       const isLoss = loseIdxs.includes(i);
 
-      // realistic entry price & margin calc
-      const entryPrice = 100 + Math.random() * 49000;
-      const notional   = sizeCoins * entryPrice;
-      const margin     = notional / leverage;
+      // entry price between $100 and $25,000 to satisfy profit/% constraints
+      const entryPrice = 100 + Math.random() * 24900;
+      const notional = sizeCoins * entryPrice;
+      const margin = notional / leverage;
 
-      // build profitVal between minProfit–maxProfit, then compute ROI
-      let profitVal = minProfit + Math.random() * (maxProfit - minProfit);
-      let roiPct    = profitVal / margin * 100;
-
-      // clamp ROI to 200–3000%
-      roiPct = Math.min(maxPct, Math.max(minPct, roiPct));
-      profitVal = margin * roiPct / 100;
-
-      // apply loss if needed
-      if (isLoss) {
-        profitVal = -profitVal;
-        roiPct    = -roiPct;
-      }
+      // compute bounds so profit ∈ [$200, $5000] and pct ∈ [100%, 3000%]
+      const minPct  = Math.max(100, 100000 / entryPrice);
+      const maxPct  = Math.min(3000, 2500000 / entryPrice);
+      const rawPct  = minPct + Math.random() * (maxPct - minPct);
+      const roiPct  = (isLoss ? -1 : 1) * rawPct;
+      const profitVal = margin * rawPct / 100;
 
       const markPrice = entryPrice + profitVal / sizeCoins;
       const liqPrice  = entryPrice * (1 - 1 / leverage);
 
-      // build panel
       const panel = document.createElement('div');
       panel.className = 'trade-panel';
       panel.innerHTML = `
         <div class="header">
           <span class="icon-buy">B</span>
           <span class="symbol">${sym}</span>
-          <span class="tag">Perp</span>
-          <span class="tag">Cross ${leverage}X</span>
+          <span class="tag">PERP</span>
+          <span class="tag">Cross ${leverage}</span>
           <span class="exclamations">!!!</span>
           <i class="fas fa-share-alt share"></i>
         </div>
@@ -209,7 +195,7 @@
           <div class="column right">
             <div class="stat"><div class="label">ROI</div>
               <div class="value percent ${profitVal < 0 ? 'red' : 'green'}">
-                ${(profitVal >= 0 ? '+' : '') + roiPct.toFixed(2)}%
+                ${(profitVal >= 0 ? '+' : '') + rawPct.toFixed(2)}%
               </div>
             </div>
             <div class="stat"><div class="label">Margin Ratio</div>
@@ -227,43 +213,58 @@
           <button class="btn">TP/SL</button>
           <button class="btn">Close</button>
           <button class="btn">Reverse</button>
-        </div>
-      `;
+        </div>`;
       feedDiv.appendChild(panel);
 
-      trades.push({ panel, margin, entryPrice, sizeCoins, leverage });
+      trades.push({
+        panel,
+        entryPrice,
+        notional,
+        margin,
+        leverage,
+        roiPct,
+        rawMin: minPct,
+        rawMax: maxPct
+      });
     }
 
-    // smooth, slow updates (optional)
+    // smooth, slow updates (keeps PNL/% within original bounds)
     setInterval(() => {
       trades.forEach(t => {
-        // small random drift around initial PNL
-        const valEl = t.panel.querySelector('.value');
-        let currentPNL = parseFloat(valEl.textContent.replace(/,/g, ''));
-        currentPNL += (Math.random()*2 - 1) * 50; // ±50 USDT drift
-        currentPNL = Math.max(minProfit, Math.min(maxProfit, Math.abs(currentPNL))) * Math.sign(currentPNL);
+        t.roiPct += (Math.random() * 2 - 1) * maxDeltaPct;
+        // clamp magnitude to initial [rawMin, rawMax]
+        const sign = t.roiPct >= 0 ? 1 : -1;
+        let absPct = Math.abs(t.roiPct);
+        absPct = Math.max(t.rawMin, Math.min(t.rawMax, absPct));
+        t.roiPct = sign * absPct;
 
-        const roiPct = currentPNL / t.margin * 100;
-        const newMark = t.entryPrice + currentPNL / t.sizeCoins;
-        const liq     = t.entryPrice * (1 - 1 / t.leverage);
+        const profitVal = t.margin * absPct / 100 * sign;
+        const markPrice = t.entryPrice + profitVal / sizeCoins;
+        const liqPrice  = t.entryPrice * (1 - 1 / t.leverage);
 
         const vals = t.panel.querySelectorAll('.value');
-        // update PNL
-        vals[0].textContent = formatWithCommas(currentPNL);
-        vals[0].classList.toggle('green', currentPNL >= 0);
-        vals[0].classList.toggle('red', currentPNL < 0);
-        // update Mark Price
-        vals[4].textContent = newMark.toFixed(2);
-        // update ROI
-        vals[5].textContent = (currentPNL >= 0 ? '+' : '') + roiPct.toFixed(2) + '%';
-        vals[5].classList.toggle('green', roiPct >= 0);
-        vals[5].classList.toggle('red', roiPct < 0);
-        // update Margin Ratio
-        vals[6].textContent = (currentPNL / t.margin).toFixed(2) + '%';
-        vals[6].classList.toggle('green', currentPNL >= 0);
-        vals[6].classList.toggle('red', currentPNL < 0);
-        // update Liq. Price
-        vals[7].textContent = liq.toFixed(2);
+        // 0: PNL (USDT)
+        vals[0].textContent = formatWithCommas(profitVal);
+        vals[0].classList.toggle('green', profitVal >= 0);
+        vals[0].classList.toggle('red',   profitVal <  0);
+
+        // 4: Mark Price
+        vals[4].textContent = markPrice.toFixed(2);
+
+        // 5: ROI
+        const roiEl = vals[5];
+        roiEl.textContent = (profitVal >= 0 ? '+' : '') + absPct.toFixed(2) + '%';
+        roiEl.classList.toggle('green', t.roiPct >= 0);
+        roiEl.classList.toggle('red',   t.roiPct <  0);
+
+        // 6: Margin Ratio
+        const mrEl = vals[6];
+        mrEl.textContent = (profitVal / t.margin).toFixed(2) + '%';
+        mrEl.classList.toggle('green', profitVal >= 0);
+        mrEl.classList.toggle('red',   profitVal <  0);
+
+        // 7: Liq. Price
+        vals[7].textContent = liqPrice.toFixed(2);
       });
     }, updateInterval);
   </script>
