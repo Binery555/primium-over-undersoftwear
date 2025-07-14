@@ -62,7 +62,35 @@
       padding: 1px 4px; margin-right: 6px;
       text-transform: uppercase;
     }
-    .exclamations { color: var(--text-green); font-size: 18px; font-weight: bold; margin-left: 10px; }
+    /* ADL indicator: smaller “!” shapes */
+    .exclamations {
+      display: flex;
+      margin-left: 10px;
+    }
+    .exclamations span {
+      position: relative;
+      width: 3px;
+      height: 12px;
+      background: var(--secondary-bg);
+      margin: 0 2px;
+      border-radius: 1px;
+      transition: background .3s ease;
+    }
+    .exclamations span::after {
+      content: "";
+      position: absolute;
+      bottom: -4px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 3px;
+      height: 3px;
+      background: inherit;
+      border-radius: 50%;
+    }
+    .exclamations span.green,
+    .exclamations span.green::after {
+      background: var(--text-green);
+    }
     .share { margin-left: auto; color: var(--text-secondary); font-size: 18px; cursor: pointer; }
     .content { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; }
     .column { display: flex; flex-direction: column; }
@@ -88,7 +116,6 @@
     }
     .column.right .stat:nth-child(2) .value.green,
     .column.right .stat:nth-child(2) .value.red {
-      /* keep Margin Ratio font small again */
       font-size: 14px; font-weight: 400;
     }
     .actions { display: flex; justify-content: space-between; }
@@ -102,18 +129,31 @@
     .btn:first-child { margin-left: 0; }
     .btn:last-child  { margin-right: 0; }
     .btn:hover { background: var(--secondary-bg); }
+
+    /* —— Tweak ADI position & size —— */
+    .header .exclamations {
+      margin-left: 4px;    /* closer to “Cross 50×” */
+    }
+    .exclamations span {
+      width: 2px;          /* slimmer */
+      height: 10px;        /* shorter */
+      margin: 0 1px;
+    }
+    .exclamations span::after {
+      bottom: -3px;        /* reposition dot */
+      width: 2px;
+      height: 2px;
+    }
   </style>
 </head>
 <body>
   <div class="feed"></div>
 
   <script>
-    // helper to format with commas and two decimals
     function formatWithCommas(x) {
       return x.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     }
 
-    // CONFIG
     const symbols = [
       'BTCUSDT','ETHUSDT','BNBUSDT','ADAUSDT','SOLUSDT',
       'XRPUSDT','DOTUSDT','LTCUSDT','LINKUSDT','DOGEUSDT',
@@ -122,9 +162,9 @@
     ];
     const sizeCoins = 10;
     const leverage = 50;
-    const updateInterval = 2000; // 2 seconds
-    const maxDeltaPct = 1;       // +/-1% per update
-    const extraTrades = 50;      // add 50 more trades
+    const updateInterval = 2000;
+    const maxDeltaPct = 1;
+    const extraTrades = 50;
 
     function pickLosers(count, total) {
       const losers = [];
@@ -141,22 +181,25 @@
     const trades = [];
     const feedDiv = document.querySelector('.feed');
 
-    // initialize all trades
     for (let i = 0; i < totalCount; i++) {
       const sym = symbols[i % symbols.length];
       const isLoss = loseIdxs.includes(i);
 
-      // entry price between $100 and $25,000 to satisfy profit/% constraints
       const entryPrice = 100 + Math.random() * 24900;
       const notional = sizeCoins * entryPrice;
       const margin = notional / leverage;
 
-      // compute bounds so profit ∈ [$200, $5000] and pct ∈ [100%, 3000%]
+      const adlTotal = 4;
+      const adlGreenCount = Math.floor(Math.random() * adlTotal) + 1;
+      let adlHtml = '';
+      for (let j = 0; j < adlTotal; j++) {
+        adlHtml += `<span class="${j < adlGreenCount ? 'green' : ''}"></span>`;
+      }
+
       const minPct  = Math.max(100, 100000 / entryPrice);
       const maxPct  = Math.min(3000, 2500000 / entryPrice);
       const rawPct  = minPct + Math.random() * (maxPct - minPct);
-      const roiPct  = (isLoss ? -1 : 1) * rawPct;
-      const profitVal = margin * rawPct / 100;
+      const profitVal = margin * rawPct / 100 * (isLoss ? -1 : 1);
 
       const markPrice = entryPrice + profitVal / sizeCoins;
       const liqPrice  = entryPrice * (1 - 1 / leverage);
@@ -168,8 +211,8 @@
           <span class="icon-buy">B</span>
           <span class="symbol">${sym}</span>
           <span class="tag">PERP</span>
-          <span class="tag">Cross ${leverage}</span>
-          <span class="exclamations">!!!</span>
+          <span class="tag">Cross ${leverage}×</span>
+          <span class="exclamations">${adlHtml}</span>
           <i class="fas fa-share-alt share"></i>
         </div>
         <div class="content">
@@ -195,7 +238,7 @@
           <div class="column right">
             <div class="stat"><div class="label">ROI</div>
               <div class="value percent ${profitVal < 0 ? 'red' : 'green'}">
-                ${(profitVal >= 0 ? '+' : '') + rawPct.toFixed(2)}%
+                ${(profitVal >= 0 ? '+' : '') + ((Math.abs(profitVal) / margin) * 100).toFixed(2)}%
               </div>
             </div>
             <div class="stat"><div class="label">Margin Ratio</div>
@@ -216,23 +259,12 @@
         </div>`;
       feedDiv.appendChild(panel);
 
-      trades.push({
-        panel,
-        entryPrice,
-        notional,
-        margin,
-        leverage,
-        roiPct,
-        rawMin: minPct,
-        rawMax: maxPct
-      });
+      trades.push({ panel, entryPrice, notional, margin, leverage, rawMin: minPct, rawMax: maxPct, roiPct: profitVal });
     }
 
-    // smooth, slow updates (keeps PNL/% within original bounds)
     setInterval(() => {
       trades.forEach(t => {
         t.roiPct += (Math.random() * 2 - 1) * maxDeltaPct;
-        // clamp magnitude to initial [rawMin, rawMax]
         const sign = t.roiPct >= 0 ? 1 : -1;
         let absPct = Math.abs(t.roiPct);
         absPct = Math.max(t.rawMin, Math.min(t.rawMax, absPct));
@@ -243,27 +275,22 @@
         const liqPrice  = t.entryPrice * (1 - 1 / t.leverage);
 
         const vals = t.panel.querySelectorAll('.value');
-        // 0: PNL (USDT)
         vals[0].textContent = formatWithCommas(profitVal);
         vals[0].classList.toggle('green', profitVal >= 0);
         vals[0].classList.toggle('red',   profitVal <  0);
 
-        // 4: Mark Price
         vals[4].textContent = markPrice.toFixed(2);
 
-        // 5: ROI
         const roiEl = vals[5];
         roiEl.textContent = (profitVal >= 0 ? '+' : '') + absPct.toFixed(2) + '%';
         roiEl.classList.toggle('green', t.roiPct >= 0);
         roiEl.classList.toggle('red',   t.roiPct <  0);
 
-        // 6: Margin Ratio
         const mrEl = vals[6];
         mrEl.textContent = (profitVal / t.margin).toFixed(2) + '%';
         mrEl.classList.toggle('green', profitVal >= 0);
         mrEl.classList.toggle('red',   profitVal <  0);
 
-        // 7: Liq. Price
         vals[7].textContent = liqPrice.toFixed(2);
       });
     }, updateInterval);
